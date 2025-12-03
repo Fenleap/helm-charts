@@ -1,0 +1,37 @@
+name: Publish Helm Charts
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.14.0
+
+      - name: Package Helm chart
+        run: |
+          helm package ./mon-chart
+          mkdir -p public
+          mv *.tgz public/
+
+      - name: Generate index.yaml
+        run: |
+          helm repo index public/ --url https://<org>.github.io/fenwave-helm-charts/
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: public
+          publish_branch: gh-pages
