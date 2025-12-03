@@ -1,0 +1,62 @@
+# Production values for Backstage with S3 Storage
+# This file extends values.yaml with production-specific configurations
+#
+# SETUP INSTRUCTIONS:
+# 1. Run: ./k8s/s3-storage/setup-s3-storage.sh
+# 2. Run: ./k8s/s3-storage/install-s3-csi-driver.sh
+# 3. Replace roleArn below with the IAM Role ARN from step 1
+# 4. Deploy: helm upgrade --install fenwave-backstage . --values values-s3-storage.yaml
+
+# Enable S3 Storage
+s3Storage:
+  enabled: true
+  bucketName: 'fenwave-storage' # Must match your S3 bucket name
+  region: 'eu-west-1' # Change to your AWS region
+  mountPath: '/app/storage' # Path inside the container
+  # IMPORTANT: Replace YOUR_ACCOUNT_ID with the IAM Role ARN from setup-s3-storage.sh output
+  # Example: arn:aws:iam::123456789012:role/FenwaveBackstageS3StorageRole
+  roleArn: 'arn:aws:iam::954976325487:role/FenwaveBackstageS3StorageRole'
+  existingPvcName: 'fenwave-storage-pvc' # Must match PVC name in 02-pv-pvc.yaml
+  storageClassName: 's3-storage' # Must match StorageClass in 03-storageclass.yaml
+  size: '100Gi' # Symbolic value (S3 is unlimited)
+
+# Service Account configuration
+backstage:
+  serviceAccount:
+    create: true
+    name: 'fenwave-backstage'
+    annotations:
+      # The IAM role annotation will be added automatically from s3Storage.roleArn
+    automount: true
+
+  # Security context - ensure the user can write to S3
+  podSecurityContext:
+    fsGroup: 1001
+    runAsNonRoot: true
+    runAsUser: 1001
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false # Changed to false to allow writes to /app/storage
+    runAsNonRoot: true
+    runAsUser: 1001
+
+  # Increase resources for production with S3
+  resources:
+    limits:
+      cpu: 800m
+      memory: 512Mi
+    requests:
+      cpu: 400m
+      memory: 512Mi
+
+# Environment variables for storage paths
+envValues:
+  NODE_ENV: 'production'
+  # Storage paths - logs will be in S3
+  STORAGE_PATH: '/app/storage'
+  LOGS_PATH: '/app/storage/logs'
+  LOGOS_PATH: '/app/storage/logos'

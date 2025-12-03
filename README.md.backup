@@ -1,0 +1,160 @@
+# Fenwave Helm Charts
+
+This repository contains Helm charts for deploying Fenwave Internal Developer Platform and related services on Kubernetes.
+
+## Available Charts
+
+### fenwave-backstage
+
+Helm chart for deploying Fenwave Internal Developer Platform, which includes:
+- **Backstage**: Internal Developer Portal
+- **ArgoCD**: GitOps continuous delivery
+- **Argo Workflows**: Workflow orchestration
+- **Prometheus**: Metrics and monitoring
+- **Grafana**: Metrics visualization
+- **Alertmanager**: Alert management
+- **PostgreSQL**: Database for Backstage
+
+## Prerequisites
+
+- Kubernetes 1.24+
+- Helm 3.8+
+- Gateway API v1 enabled on cluster (for GKE: `gateway_api_config { channel = "CHANNEL_STANDARD" }`)
+- Gateway and GatewayClass configured in cluster
+
+## Installation
+
+### Add Helm repository
+
+```bash
+helm repo add fenwave https://fenleap.github.io/fenwave-helm-charts
+helm repo update
+```
+
+### Install fenwave-backstage chart
+
+```bash
+helm install fenwave fenwave/fenwave-backstage \
+  --namespace fenwave \
+  --create-namespace \
+  --values custom-values.yaml
+```
+
+## Gateway API Configuration
+
+This chart uses Kubernetes Gateway API instead of traditional Ingress resources.
+
+Before installing the chart, ensure you have:
+
+1. **GatewayClass** configured:
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: gke-gateway
+spec:
+  controllerName: networking.gke.io/gateway
+```
+
+2. **Gateway** configured:
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: default-gateway
+  namespace: gateway-system
+spec:
+  gatewayClassName: gke-gateway
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+```
+
+The chart will automatically create HTTPRoute resources for all services.
+
+## Configuration
+
+See [charts/fenwave-backstage/README.md](charts/fenwave-backstage/README.md) for detailed configuration options.
+
+### Key configuration values:
+
+```yaml
+# Gateway API configuration
+backstage:
+  gateway:
+    enabled: true
+    gatewayName: "default-gateway"
+    gatewayNamespace: "gateway-system"
+    httpRoute:
+      hostnames:
+        - "backstage.fenwave.local"
+
+# Enable/disable components
+argocd:
+  enabled: true
+  
+argo-workflows:
+  enabled: true
+  
+prometheus:
+  enabled: true
+  
+grafana:
+  enabled: true
+```
+
+## Services and URLs
+
+After deployment, services will be available at:
+
+- **Backstage**: `http://backstage.fenwave.local`
+- **ArgoCD**: `http://argocd.fenwave.local`
+- **Argo Workflows**: `http://argo-workflows.fenwave.local`
+- **Prometheus**: `http://prometheus.fenwave.local`
+- **Grafana**: `http://grafana.fenwave.local`
+- **Alertmanager**: `http://alertmanager.fenwave.local`
+
+Configure your DNS or `/etc/hosts` to point these domains to the Gateway IP:
+
+```bash
+# Get Gateway IP
+GATEWAY_IP=$(kubectl get gateway default-gateway -n gateway-system -o jsonpath='{.status.addresses[0].value}')
+
+# Add to /etc/hosts
+echo "$GATEWAY_IP  backstage.fenwave.local argocd.fenwave.local argo-workflows.fenwave.local prometheus.fenwave.local grafana.fenwave.local alertmanager.fenwave.local" | sudo tee -a /etc/hosts
+```
+
+## Development
+
+### Building and testing locally
+
+```bash
+# Lint the chart
+helm lint charts/fenwave-backstage
+
+# Template the chart
+helm template fenwave charts/fenwave-backstage --values charts/fenwave-backstage/values.yaml
+
+# Install from local directory
+helm install fenwave ./charts/fenwave-backstage \
+  --namespace fenwave \
+  --create-namespace
+```
+
+## Contributing
+
+Contributions are welcome! Please open an issue or pull request.
+
+## License
+
+[License information]
+
+## Support
+
+For issues and questions:
+- GitHub Issues: https://github.com/Fenleap/fenwave-helm-charts/issues
+- Documentation: [Add documentation URL]

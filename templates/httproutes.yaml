@@ -1,0 +1,216 @@
+{{- if .Values.gateway.enabled -}}
+---
+# ==============================================================================
+# Backstage HTTPRoute
+# Exposes Backstage IDP on the configured hostname
+# ==============================================================================
+{{- if .Values.backstage.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}-backstage
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backstage
+    gateway.fenwave.com/service: backstage
+  annotations:
+    description: "HTTPRoute for Backstage Internal Developer Platform"
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.gatewayName }}
+      namespace: {{ .Values.gateway.gatewayNamespace }}
+      sectionName: {{ .Values.gateway.listenerName | default "https" }}
+  hostnames:
+    - {{ .Values.gateway.hostnames.backstage | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ include "fenwave-backstage.fullname" . }}
+          port: {{ .Values.backstage.service.port }}
+          weight: 1
+{{- end }}
+
+---
+# ==============================================================================
+# ArgoCD HTTPRoute
+# Exposes ArgoCD UI and API on the configured hostname
+# ==============================================================================
+{{- if .Values.argocd.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}-argocd
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+    app.kubernetes.io/component: argocd
+    gateway.fenwave.com/service: argocd
+  annotations:
+    description: "HTTPRoute for ArgoCD GitOps Controller"
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.gatewayName }}
+      namespace: {{ .Values.gateway.gatewayNamespace }}
+      sectionName: {{ .Values.gateway.listenerName | default "https" }}
+  hostnames:
+    - {{ .Values.gateway.hostnames.argocd | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ .Release.Name }}-argocd-server
+          namespace: {{ .Release.Namespace }}
+          port: 80
+          weight: 1
+{{- end }}
+
+---
+# ==============================================================================
+# Argo Workflows HTTPRoute
+# Exposes Argo Workflows UI and API on the configured hostname
+# ==============================================================================
+{{- if index .Values "argo-workflows" "enabled" }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}-argo-workflows
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+    app.kubernetes.io/component: argo-workflows
+    gateway.fenwave.com/service: argo-workflows
+  annotations:
+    description: "HTTPRoute for Argo Workflows Engine"
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.gatewayName }}
+      namespace: {{ .Values.gateway.gatewayNamespace }}
+      sectionName: {{ .Values.gateway.listenerName | default "https" }}
+  hostnames:
+    - {{ .Values.gateway.hostnames.argoWorkflows | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ .Release.Name }}-argo-workflows-server
+          namespace: {{ .Release.Namespace }}
+          port: 2746
+          weight: 1
+{{- end }}
+
+---
+# ==============================================================================
+# Prometheus HTTPRoute
+# Exposes Prometheus monitoring UI on the configured hostname
+# ==============================================================================
+{{- if .Values.prometheus.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}-prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+    gateway.fenwave.com/service: prometheus
+  annotations:
+    description: "HTTPRoute for Prometheus Monitoring"
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.gatewayName }}
+      namespace: {{ .Values.gateway.gatewayNamespace }}
+      sectionName: {{ .Values.gateway.listenerName | default "https" }}
+  hostnames:
+    - {{ .Values.gateway.hostnames.prometheus | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ .Release.Name }}-prometheus-server
+          namespace: {{ .Release.Namespace }}
+          port: 80
+          weight: 1
+{{- end }}
+
+---
+# ==============================================================================
+# Grafana HTTPRoute
+# Exposes Grafana dashboards UI on the configured hostname
+# ==============================================================================
+{{- if .Values.grafana.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}-grafana
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+    gateway.fenwave.com/service: grafana
+  annotations:
+    description: "HTTPRoute for Grafana Dashboards"
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.gatewayName }}
+      namespace: {{ .Values.gateway.gatewayNamespace }}
+      sectionName: {{ .Values.gateway.listenerName | default "https" }}
+  hostnames:
+    - {{ .Values.gateway.hostnames.grafana | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ .Release.Name }}-grafana
+          namespace: {{ .Release.Namespace }}
+          port: 80
+          weight: 1
+{{- end }}
+
+---
+# ==============================================================================
+# Alertmanager HTTPRoute (Optional)
+# Exposes Alertmanager UI on the configured hostname
+# ==============================================================================
+{{- if .Values.alertmanager.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}-alertmanager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alertmanager
+    gateway.fenwave.com/service: alertmanager
+  annotations:
+    description: "HTTPRoute for Prometheus Alertmanager"
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.gatewayName }}
+      namespace: {{ .Values.gateway.gatewayNamespace }}
+      sectionName: {{ .Values.gateway.listenerName | default "https" }}
+  hostnames:
+    - {{ .Values.gateway.hostnames.alertmanager | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ .Release.Name }}-alertmanager
+          namespace: {{ .Release.Namespace }}
+          port: 80
+          weight: 1
+{{- end }}
+{{- end }}

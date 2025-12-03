@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+  {{- with .Values.backstage.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.backstage.service.type }}
+  {{- if and (eq .Values.backstage.service.type "LoadBalancer") .Values.backstage.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.backstage.service.loadBalancerIP }}
+  {{- end }}
+  {{- if and (eq .Values.backstage.service.type "LoadBalancer") .Values.backstage.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- range .Values.backstage.service.loadBalancerSourceRanges }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+  {{- if and (eq .Values.backstage.service.type "ClusterIP") .Values.backstage.service.clusterIP }}
+  clusterIP: {{ .Values.backstage.service.clusterIP }}
+  {{- end }}
+  {{- if .Values.backstage.service.externalIPs }}
+  externalIPs:
+    {{- range .Values.backstage.service.externalIPs }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+  {{- if .Values.backstage.service.sessionAffinity }}
+  sessionAffinity: {{ .Values.backstage.service.sessionAffinity }}
+  {{- end }}
+  {{- if .Values.backstage.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.backstage.service.externalTrafficPolicy }}
+  {{- end }}
+  ports:
+    - port: {{ .Values.backstage.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+      {{- if and (or (eq .Values.backstage.service.type "NodePort") (eq .Values.backstage.service.type "LoadBalancer")) .Values.backstage.service.nodePort }}
+      nodePort: {{ .Values.backstage.service.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "fenwave-backstage.selectorLabels" . | nindent 4 }}

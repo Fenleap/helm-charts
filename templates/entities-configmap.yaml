@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}-entities
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+  annotations:
+    deployment.kubernetes.io/revision: {{ now | unixEpoch | quote }}
+    configmap.fenwave.io/last-updated: {{ now | date "2006-01-02T15:04:05Z" | quote }}
+data:
+  entities.yaml: |
+    # Core Commerce Domain
+    ---
+    apiVersion: backstage.io/v1alpha1
+    kind: Domain
+    metadata:
+      name: core-commerce-domain
+      description: Core Commerce platform domain
+    spec:
+      owner: group/team-core-commerce
+
+    # Core Commerce System
+    ---
+    apiVersion: backstage.io/v1alpha1
+    kind: System
+    metadata:
+      name: core-commerce
+      description: Core commerce platform including API, backend, frontend
+    spec:
+      owner: group/team-core-commerce
+      domain: core-commerce-domain
+
+    # Core Commerce API Component
+    ---
+    apiVersion: backstage.io/v1alpha1
+    kind: Component
+    metadata:
+      name: core-commerce-api
+      description: Core Commerce REST API backend service
+      annotations:
+        bitbucket.org/project-key: COR
+        bitbucket.org/repo-slug: core-commerce-kawa
+        backstage.io/source-location: url:https://bitbucket.org/webteambut/core-commerce-kawa
+    spec:
+      type: service
+      lifecycle: production
+      owner: group/team-core-commerce
+      system: core-commerce
+
+    # Core Commerce Frontend Component
+    ---
+    apiVersion: backstage.io/v1alpha1
+    kind: Component
+    metadata:
+      name: core-commerce-frontend
+      description: Core Commerce frontend application
+      annotations:
+        bitbucket.org/project-key: COR
+        bitbucket.org/repo-slug: demo-frontend
+        backstage.io/source-location: url:https://bitbucket.org/webteambut/demo-frontend
+    spec:
+      type: website
+      lifecycle: production
+      owner: group/team-core-commerce
+      system: core-commerce
+      dependsOn:
+        - component:default/core-commerce-api
+
+    # Core Commerce API Specifications
+    ---
+    apiVersion: backstage.io/v1alpha1
+    kind: Component
+    metadata:
+      name: core-commerce-api-specs
+      description: OpenAPI specifications for the Core Commerce platform APIs
+      annotations:
+        bitbucket.org/project-key: COR
+        bitbucket.org/repo-slug: core-commerce-api-specs
+        backstage.io/source-location: url:https://bitbucket.org/webteambut/core-commerce-api-specs
+    spec:
+      type: documentation
+      lifecycle: production
+      owner: group/team-core-commerce
+      system: core-commerce

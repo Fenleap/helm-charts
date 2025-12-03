@@ -1,0 +1,181 @@
+{{- if .Values.gateway.enabled -}}
+---
+# ==============================================================================
+# Grafana HealthCheckPolicy
+# Configures GCP health checks to use the correct endpoint for Grafana
+# ==============================================================================
+{{- if .Values.grafana.enabled }}
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}-grafana-healthcheck
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+  annotations:
+    description: "Health check policy for Grafana service"
+spec:
+  default:
+    checkIntervalSec: 10
+    timeoutSec: 5
+    healthyThreshold: 2
+    unhealthyThreshold: 3
+    logConfig:
+      enabled: true
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: {{ .Values.grafana.service.targetPort | default 3000 }}
+        portSpecification: USE_FIXED_PORT
+        requestPath: /api/health
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ .Release.Name }}-grafana
+{{- end }}
+
+---
+# ==============================================================================
+# Prometheus HealthCheckPolicy
+# Configures GCP health checks to use the correct endpoint for Prometheus
+# ==============================================================================
+{{- if .Values.prometheus.enabled }}
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}-prometheus-healthcheck
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+  annotations:
+    description: "Health check policy for Prometheus service"
+spec:
+  default:
+    checkIntervalSec: 10
+    timeoutSec: 5
+    healthyThreshold: 2
+    unhealthyThreshold: 3
+    logConfig:
+      enabled: true
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: 9090
+        portSpecification: USE_FIXED_PORT
+        requestPath: /-/healthy
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ .Release.Name }}-prometheus-server
+{{- end }}
+
+---
+# ==============================================================================
+# ArgoCD HealthCheckPolicy
+# Configures GCP health checks to use the correct endpoint for ArgoCD
+# ==============================================================================
+{{- if .Values.argocd.enabled }}
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}-argocd-healthcheck
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+    app.kubernetes.io/component: argocd
+  annotations:
+    description: "Health check policy for ArgoCD service"
+spec:
+  default:
+    checkIntervalSec: 10
+    timeoutSec: 5
+    healthyThreshold: 2
+    unhealthyThreshold: 3
+    logConfig:
+      enabled: true
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: 8080
+        portSpecification: USE_FIXED_PORT
+        requestPath: /healthz
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ .Release.Name }}-argocd-server
+{{- end }}
+
+---
+# ==============================================================================
+# Argo Workflows HealthCheckPolicy
+# Configures GCP health checks to use the correct endpoint for Argo Workflows
+# ==============================================================================
+{{- if index .Values "argo-workflows" "enabled" }}
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}-argo-workflows-healthcheck
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+    app.kubernetes.io/component: argo-workflows
+  annotations:
+    description: "Health check policy for Argo Workflows service"
+spec:
+  default:
+    checkIntervalSec: 10
+    timeoutSec: 5
+    healthyThreshold: 2
+    unhealthyThreshold: 3
+    logConfig:
+      enabled: true
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: 2746
+        portSpecification: USE_FIXED_PORT
+        requestPath: /
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ .Release.Name }}-argo-workflows-server
+{{- end }}
+
+---
+# ==============================================================================
+# Alertmanager HealthCheckPolicy (Optional)
+# Configures GCP health checks to use the correct endpoint for Alertmanager
+# ==============================================================================
+{{- if .Values.alertmanager.enabled }}
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}-alertmanager-healthcheck
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alertmanager
+  annotations:
+    description: "Health check policy for Alertmanager service"
+spec:
+  default:
+    checkIntervalSec: 10
+    timeoutSec: 5
+    healthyThreshold: 2
+    unhealthyThreshold: 3
+    logConfig:
+      enabled: true
+    config:
+      type: HTTP
+      httpHealthCheck:
+        port: 9093
+        portSpecification: USE_FIXED_PORT
+        requestPath: /-/healthy
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ .Release.Name }}-alertmanager
+{{- end }}
+{{- end }}

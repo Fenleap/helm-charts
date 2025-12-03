@@ -1,0 +1,451 @@
+# Default values for fenwave-backstage.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global settings
+global:
+  # PostgreSQL settings
+  postgresql:
+    auth:
+      postgresPassword: "backstage_password"
+      username: "backstage_user"
+      password: "backstage_password"
+      database: "backstage_db"
+  # Security settings
+  security:
+    allowInsecureImages: true
+
+# ==============================================================================
+# Gateway API Configuration
+# This section configures how Fenwave services are exposed via Gateway API
+# The Gateway itself is created by Terraform in the gateway-system namespace
+# ==============================================================================
+gateway:
+  # Enable Gateway API routing for all services
+  enabled: false
+  
+  # Reference to the Gateway created by Terraform
+  # This Gateway is provisioned by Terraform in the gateway-controller module
+  gatewayName: "default-gateway"
+  gatewayNamespace: "gateway-system"
+  
+  # Listener name on the Gateway (usually "http" or "https")
+  # This must match the listener name defined in Terraform
+  listenerName: "http"
+  
+  # Hostnames for each service exposed via Gateway API
+  # These will be used in HTTPRoute resources
+  # Format: service.domain.com
+  hostnames:
+    backstage: "backstage.fenwave.com"
+    argocd: "argocd.fenwave.com"
+    argoWorkflows: "argo-workflows.fenwave.com"
+    prometheus: "prometheus.fenwave.com"
+    grafana: "grafana.fenwave.com"
+    alertmanager: "alertmanager.fenwave.com"
+  
+  # AWS specific configuration
+  aws:
+    # Region for AWS resources
+    region: "eu-west-1"
+    
+    # SSL/TLS Certificate Configuration
+    # Certificate must be created in AWS Certificate Manager (ACM) before deployment
+    ssl:
+      enabled: true  # HTTPS is enabled for argocd.fenwave.com
+      certificateArn: ""  # ARN of ACM certificate for *.fenwave.com
+    
+    # Note: Health checks are automatically managed by AWS Load Balancer Controller
+    # ALB/NLB settings configured via annotations
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Backstage application settings
+backstage:
+  replicaCount: 2
+  
+  image:
+    repository: 954976325487.dkr.ecr.eu-west-1.amazonaws.com/fenwave/idp
+    pullPolicy: Always
+    tag: v1.4.0
+  
+  # imagePullSecrets:
+  #   - name: ecr-credentials
+  
+  # Application configuration
+  appConfig:
+    title: "Fenwave Internal Developer Platform"
+    baseUrl: "https://backstage.fenwave.com"
+    organization:
+      name: "Fenwave"
+    backend:
+      baseUrl: "https://backstage.fenwave.com"
+      cors:
+        origin: "https://backstage.fenwave.com"
+  
+  # Service account
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+  
+  # Pod security context
+  podSecurityContext:
+    fsGroup: 1001
+  
+  # Container security context
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1001
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 7007
+    annotations: {}
+  
+  # Resource limits and requests
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Node selector
+  nodeSelector: {}
+  
+  # Tolerations
+  tolerations: []
+  
+  # Affinity
+  affinity: {}
+  
+  # Autoscaling
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  
+  # Probes
+  livenessProbe:
+    httpGet:
+      path: /healthcheck
+      port: 7007
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  
+  readinessProbe:
+    httpGet:
+      path: /healthcheck
+      port: 7007
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# PostgreSQL configuration (using Bitnami chart)
+postgresql:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnami/postgresql
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  architecture: standalone
+  auth:
+    rootPassword: "postgres_root_password"
+    username: "backstage_user"
+    password: "backstage_password"
+    database: "backstage_db"
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+    service:
+      ports:
+        postgresql: 5432
+
+# External PostgreSQL configuration (if postgresql.enabled = false)
+externalDatabase:
+  host: ""
+  port: 5432
+  username: "backstage_user"
+  password: "backstage_password"
+  database: "backstage_db"
+  existingSecret: ""
+  existingSecretPasswordKey: ""
+
+# ==============================================================================
+# ArgoCD Configuration
+# ==============================================================================
+argocd:
+  enabled: false
+  server:
+    service:
+      type: ClusterIP
+    # Disable ArgoCD's native ingress - we use Gateway API instead
+    ingress:
+      enabled: false
+  configs:
+    params:
+      # Run server without TLS - Gateway terminates SSL
+      server.insecure: true
+
+# ==============================================================================
+# Argo Workflows Configuration
+# ==============================================================================
+argo-workflows:
+  enabled: false
+  server:
+    enabled: true
+    # Disable Argo Workflows' native ingress - we use Gateway API instead
+    ingress:
+      enabled: false
+
+# ==============================================================================
+# Prometheus Configuration
+# ==============================================================================
+prometheus:
+  enabled: false
+  server:
+    service:
+      type: ClusterIP
+    # Disable Prometheus' native ingress - we use Gateway API instead
+    ingress:
+      enabled: false
+    persistentVolume:
+      enabled: true
+      size: 8Gi
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+
+# ==============================================================================
+# Grafana Configuration
+# ==============================================================================
+grafana:
+  enabled: false
+  adminPassword: "admin"
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 3000
+  # Disable Grafana's native ingress - we use Gateway API instead
+  ingress:
+    enabled: false
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://{{ .Release.Name }}-prometheus-server
+          access: proxy
+          isDefault: true
+
+# ==============================================================================
+# Alertmanager Configuration
+# ==============================================================================
+alertmanager:
+  enabled: false
+  service:
+    type: ClusterIP
+  # Disable Alertmanager's native ingress - we use Gateway API instead
+  ingress:
+    enabled: false
+  persistentVolume:
+    enabled: true
+    size: 2Gi
+
+# Backstage configuration
+config:
+  app:
+    title: "Fenwave Backstage"
+    baseUrl: "http://localhost:3000"
+  
+  backend:
+    baseUrl: "http://localhost:7007"
+    listen:
+      port: 7007
+    cors:
+      origin: "http://localhost:3000"
+      methods: [GET, POST, PUT, DELETE]
+      credentials: true
+  
+  # GitHub integration
+  integrations:
+    github:
+      host: "github.com"
+      token: ""  # Set via environment variable GITHUB_TOKEN
+  
+  # Auth providers
+  auth:
+    environment: "production"
+    providers:
+      github:
+        development:
+          clientId: ""
+          clientSecret: ""
+      bitbucket:
+        development:
+          clientId: ""
+          clientSecret: ""
+      guest:
+        userEntityRef: "user:default/guest"
+  
+  # Kubernetes integration
+  kubernetes:
+    serviceLocatorMethod:
+      type: "multiTenant"
+    clusterLocatorMethods:
+      - type: "config"
+        clusters: []
+  
+  # ArgoCD integration
+  argoCD:
+    baseUrl: ""
+    token: ""
+  
+  # Argo Workflows integration
+  argo:
+    baseUrl: ""
+    token: ""
+    namespace: "argo"
+    serverUrl: ""
+    insecure: true
+  
+  # AWS configuration
+  aws:
+    mainAccount: ""
+    accounts: []
+    accountDefaults: {}
+  
+  # Prometheus integration
+  prometheus:
+    host: ""
+    token: ""
+
+# Environment variables
+envValues:
+  # Database
+  POSTGRES_HOST: "fenwave-backstage-postgresql"  # Will be set automatically if using internal PostgreSQL
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: "backstage_user"
+  POSTGRES_DB: "backstage_db"
+  
+  # Backend
+  BACKEND_SECRET: "change-this-secret-in-production-fenwave-2024"
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  
+  # GitHub
+  GITHUB_TOKEN: ""
+  
+  # ArgoCD
+  ARGOCD_TOKEN: ""
+  ARGOCD_BASE_URL: "https://argocd.fenwave.com"
+  
+  # Kubernetes
+  KUBERNETES_API_SERVER_URL: "https://kubernetes.default.svc"
+  KUBERNETES_CLUSTER_NAME: "fenwave-gitops"
+  SERVICE_ACCOUNT_TOKEN: ""
+  SERVICE_ACCOUNT_CA_DATA: ""
+  
+  # Argo Workflows
+  ARGO_WORKFLOWS_TOKEN: ""
+  ARGO_WORKFLOWS_BASE_URL: "http://argo-workflows-server.fenwave-platform.svc.cluster.local:2746"
+  ARGO_WORKFLOWS_NAMESPACE: "argo"
+  ARGO_WORKFLOWS_SERVER_URL: ""
+  ARGO_WORKFLOWS_INSECURE: "true"
+  
+  # Monitoring/Prometheus
+  MONITORING_BASE_URL: "http://prometheus-server.fenwave-platform.svc.cluster.local"
+  MONITORING_TOKEN: ""
+
+# Secrets configuration
+secrets:
+  # Create secrets for sensitive data
+  create: true
+  # External secret name (if not creating secrets)
+  name: ""
+  
+  # Secret keys
+  githubToken: ""
+  argoCdToken: ""
+  argoWorkflowsToken: ""
+  serviceAccountToken: ""
+  serviceAccountCaData: ""
+  backendSecret: ""
+  postgresPassword: ""
+
+# ConfigMap for app-config.yaml
+configMap:
+  create: true
+  name: ""
+
+# Additional volumes
+extraVolumes: []
+
+# Additional volume mounts
+extraVolumeMounts: []
+
+# Additional containers
+extraContainers: []
+
+# Additional init containers
+initContainers: []
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}
+
+# Deployment annotations
+deploymentAnnotations: {}
+
+# Service monitor for Prometheus (if using Prometheus Operator)
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  path: /metrics
+  labels: {}
+  annotations: {}
+
+# Secret values for sensitive data
+secretValues:
+  BACKEND_SECRET: "${BACKEND_SECRET}"
+  GITHUB_TOKEN: "${GITHUB_TOKEN}"
+  POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+  ARGOCD_TOKEN: "${ARGOCD_TOKEN}"
+  KUBERNETES_SERVICE_ACCOUNT_TOKEN: "${KUBERNETES_SERVICE_ACCOUNT_TOKEN}"
+  ARGO_WORKFLOWS_TOKEN: "${ARGO_WORKFLOWS_TOKEN}"
+  AUTH_GITHUB_CLIENT_SECRET: "${AUTH_GITHUB_CLIENT_SECRET}"
+  AUTH_BITBUCKET_CLIENT_SECRET: "${AUTH_BITBUCKET_CLIENT_SECRET}"
+  PROMETHEUS_TOKEN: "${PROMETHEUS_TOKEN}"
+  SONARQUBE_API_KEY: "${SONARQUBE_API_KEY}"
+  JENKINS_API_KEY: "${JENKINS_API_KEY}"

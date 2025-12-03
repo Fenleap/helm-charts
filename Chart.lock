@@ -1,0 +1,21 @@
+dependencies:
+- name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  version: 16.7.27
+- name: argo-cd
+  repository: https://argoproj.github.io/argo-helm
+  version: 5.55.0
+- name: argo-workflows
+  repository: https://argoproj.github.io/argo-helm
+  version: 0.45.28
+- name: prometheus
+  repository: https://prometheus-community.github.io/helm-charts
+  version: 25.30.2
+- name: grafana
+  repository: https://grafana.github.io/helm-charts
+  version: 7.3.12
+- name: alertmanager
+  repository: https://prometheus-community.github.io/helm-charts
+  version: 1.28.1
+digest: sha256:7484af62c34c4825ebfc9fed9426c902adeeba49d8b199c8f4eca7cc084122b5
+generated: "2025-11-20T12:08:31.882937029+01:00"

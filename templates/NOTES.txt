@@ -1,0 +1,82 @@
+1. Get the application URL by running these commands:
+{{- if .Values.gateway.enabled }}
+
+  ✅ Services exposed via Gateway API:
+  
+  Gateway Name: {{ .Values.gateway.gatewayName }}
+  Gateway Namespace: {{ .Values.gateway.gatewayNamespace }}
+  
+  Get the Load Balancer IP:
+  export GATEWAY_IP=$(kubectl get gateway {{ .Values.gateway.gatewayName }} -n {{ .Values.gateway.gatewayNamespace }} -o jsonpath='{.status.addresses[0].value}')
+  echo "Gateway IP: $GATEWAY_IP"
+  
+  Services URLs (configure these in your DNS):
+  {{- if .Values.backstage.enabled }}
+  - Backstage:       http{{ if .Values.gateway.aws.ssl.enabled }}s{{ end }}://{{ .Values.gateway.hostnames.backstage }}
+  {{- end }}
+  {{- if .Values.argocd.enabled }}
+  - ArgoCD:          http{{ if .Values.gateway.aws.ssl.enabled }}s{{ end }}://{{ .Values.gateway.hostnames.argocd }}
+  {{- end }}
+  {{- if index .Values "argo-workflows" "enabled" }}
+  - Argo Workflows:  http{{ if .Values.gateway.aws.ssl.enabled }}s{{ end }}://{{ .Values.gateway.hostnames.argoWorkflows }}
+  {{- end }}
+  {{- if .Values.prometheus.enabled }}
+  - Prometheus:      http{{ if .Values.gateway.aws.ssl.enabled }}s{{ end }}://{{ .Values.gateway.hostnames.prometheus }}
+  {{- end }}
+  {{- if .Values.grafana.enabled }}
+  - Grafana:         http{{ if .Values.gateway.aws.ssl.enabled }}s{{ end }}://{{ .Values.gateway.hostnames.grafana }}
+  {{- end }}
+  
+  Test with curl (before DNS configuration):
+  curl -H "Host: {{ .Values.gateway.hostnames.backstage }}" http://$GATEWAY_IP/healthcheck
+
+{{- else if contains "ClusterIP" .Values.backstage.service.type }}
+
+  ⚠️  Gateway API is disabled. Using ClusterIP service.
+  
+  Port-forward to access Backstage:
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "fenwave-backstage.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  echo "Visit http://127.0.0.1:7007 to use Backstage"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 7007:7007
+{{- end }}
+
+2. Get the database connection details:
+{{- if .Values.postgresql.enabled }}
+  PostgreSQL is enabled and will be deployed as part of this release.
+  
+  Database Host: {{ include "fenwave-backstage.databaseHost" . }}
+  Database Port: {{ include "fenwave-backstage.databasePort" . }}
+  Database Name: {{ include "fenwave-backstage.databaseName" . }}
+  Database User: {{ include "fenwave-backstage.databaseUser" . }}
+  
+  To get the database password:
+  export POSTGRES_PASSWORD=$(kubectl get secret --namespace {{ .Release.Namespace }} {{ include "fenwave-backstage.databaseSecretName" . }} -o jsonpath="{.data.postgres-password}" | base64 --decode)
+{{- else }}
+  Using external database:
+  Host: {{ .Values.externalDatabase.host }}
+  Port: {{ .Values.externalDatabase.port }}
+  Database: {{ .Values.externalDatabase.database }}
+  User: {{ .Values.externalDatabase.username }}
+{{- end }}
+
+3. Check the status of your deployment:
+  kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "fenwave-backstage.name" . }},app.kubernetes.io/instance={{ .Release.Name }}"
+
+4. View the logs:
+  kubectl logs --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "fenwave-backstage.name" . }},app.kubernetes.io/instance={{ .Release.Name }}"
+
+5. Configuration:
+  The Backstage configuration is stored in the ConfigMap: {{ include "fenwave-backstage.configMapName" . }}
+  Secrets are stored in: {{ include "fenwave-backstage.secretName" . }}
+
+{{- if not .Values.secretValues.GITHUB_TOKEN }}
+Warning: GITHUB_TOKEN is not set. GitHub integration will not work.
+{{- end }}
+
+{{- if not .Values.secretValues.ARGOCD_TOKEN }}
+Warning: ARGOCD_TOKEN is not set. ArgoCD integration will not work.
+{{- end }}
+
+{{- if not .Values.secretValues.KUBERNETES_SERVICE_ACCOUNT_TOKEN }}
+Warning: KUBERNETES_SERVICE_ACCOUNT_TOKEN is not set. Kubernetes integration will not work.
+{{- end }}

@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}-org
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+  annotations:
+    deployment.kubernetes.io/revision: {{ now | unixEpoch | quote }}
+    configmap.fenwave.io/last-updated: {{ now | date "2006-01-02T15:04:05Z" | quote }}
+data:
+  org.yaml: |
+    # Core Commerce Team Users
+    ---
+    apiVersion: backstage.io/v1alpha1
+    kind: User
+    metadata:
+      name: seifeddine.besbes
+      displayName: Seifeddine Besbes
+      email: besbes.s@decade.fr
+      annotations:
+        bitbucket.org/username: seifeddinebut
+    spec:
+      profile:
+        displayName: Seifeddine Besbes
+        email: besbes.s@decade.fr
+      memberOf:
+        - group:team-core-commerce
+
+    ---
+    apiVersion: backstage.io/v1alpha1
+    kind: User
+    metadata:
+      name: ahmed.hadjsaad
+      displayName: Ahmed Hadj Saad
+      email: hadjsaad.a@decade.fr
+    spec:
+      profile:
+        displayName: Ahmed Hadj Saad
+        email: hadjsaad.a@decade.fr
+      memberOf: 
+        - group:team-core-commerce
+
+    ---
+    apiVersion: backstage.io/v1alpha1
+    kind: User
+    metadata:
+      name: heni.ayadi
+      displayName: Heni Ayadi
+      email: ayadi.h@decade.fr
+      annotations:
+        bitbucket.org/username: heniayadi
+    spec:
+      profile:
+        displayName: Heni Ayadi
+        email: ayadi.h@decade.fr
+      memberOf: 
+        - group:team-core-commerce
+
+    ---
+    apiVersion: backstage.io/v1alpha1
+    kind: User
+    metadata:
+      name: houssem.benromdhane
+      displayName: Houssem Ben Romdhane
+      email: benromdhane.h@decade.fr
+      annotations:
+        bitbucket.org/username: benromdhaneh
+    spec:
+      profile:
+        displayName: Houssem Ben Romdhane
+        email: benromdhane.h@decade.fr
+      memberOf: 
+        - group:team-core-commerce
+    ---
+    apiVersion: backstage.io/v1alpha1
+    kind: User
+    metadata:
+      name: oumayma.mdimagh
+      displayName: Oumayma Mdimagh
+      email: mdimagh.o@decade.fr
+      annotations:
+        bitbucket.org/username: oumayma_MDIMAGH
+    spec:
+      profile:
+        displayName: Oumayma Mdimagh
+        email: mdimagh.o@decade.fr
+      memberOf: 
+        - group:team-core-commerce
+    ---
+    apiVersion: backstage.io/v1alpha1
+    kind: User
+    metadata:
+      name: rahma.ourabi
+      displayName: Rahma Ourabi
+      email: ourabi.r@decade.fr
+      annotations:
+        bitbucket.org/username: Rahmaourabi
+    spec:
+      profile:
+        displayName: Rahma Ourabi
+        email: ourabi.r@decade.fr
+      memberOf: 
+        - group:team-core-commerce
+
+    # Groups
+    ---
+    apiVersion: backstage.io/v1alpha1
+    kind: Group
+    metadata:
+      name: team-core-commerce
+      displayName: Team Core Commerce
+      description: Core Commerce development team from Decade
+    spec:
+      type: team
+      profile:
+        displayName: Team Core Commerce
+        email: core-commerce@decade.fr
+      children: []
+      members:
+        - user:seifeddine.besbes
+        - user:oumayma.mdimagh
+        - user:ahmed.hadjsaad
+        - user:rahma.ourabi
+        - user:heni.ayadi
+        - user:houssem.benromdhane

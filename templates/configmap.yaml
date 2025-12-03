@@ -1,0 +1,221 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "fenwave-backstage.configMapName" . }}
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+data:
+  app-config.production.yaml: |
+    app:
+      title: {{ .Values.backstage.appConfig.title | quote }}
+      baseUrl: {{ .Values.backstage.appConfig.baseUrl | quote }}
+      extensions:
+        - entity-content:sentry/sentry-issues
+        - entity-card:sentry/sentry-issues
+        - entity-content:sonarqube/entity
+        - entity-card:sonarqube/card
+        - entity-content:kubernetes/kubernetes:
+            config:
+              filter: kind:component,api,resource,system
+
+    organization:
+      name: {{ .Values.backstage.appConfig.organization.name | quote }}
+      
+    backend:
+      baseUrl: {{ .Values.backstage.appConfig.backend.baseUrl | quote }}
+      listen:
+        port: {{ .Values.backstage.service.port }}
+        host: 0.0.0.0
+      csp:
+        connect-src: ["'self'", 'http:', 'https:', {{ .Values.backstage.appConfig.baseUrl | quote }}, {{ .Values.backstage.appConfig.backend.baseUrl | quote }}]
+        img-src:
+          [
+            "'self'",
+            'data:',
+            'https://backstage.io',
+            'https://img.shields.io/',
+            'https://api.dicebear.com/',
+            'https://kroki.io/',
+            'https://www.bestpractices.dev/',
+            'https://api.securityscorecards.dev',
+            'https://img.icons8.com',
+          ]
+        frame-src: ['https://www.youtube.com']
+      cors:
+        origin: {{ .Values.backstage.appConfig.backend.cors.origin | quote }}
+        methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+        credentials: true
+      auth:
+        session:
+          secret: ${BACKEND_SECRET}
+      database:
+        client: pg
+        connection:
+          host: ${POSTGRES_HOST}
+          port: ${POSTGRES_PORT}
+          user: ${POSTGRES_USER}
+          password: ${POSTGRES_PASSWORD}
+          database: ${POSTGRES_DB}
+        pool:
+          min: ${DATABASE_POOL_MIN:-2}
+          max: ${DATABASE_POOL_MAX:-10}
+      
+    integrations:
+      github:
+        - host: github.com
+          token: ${GITHUB_TOKEN}
+
+    auth:
+      environment: production
+      providers:
+        github:
+          production:
+            clientId: ${AUTH_GITHUB_CLIENT_ID}
+            clientSecret: ${AUTH_GITHUB_CLIENT_SECRET}
+            signIn:
+              resolvers:
+                - resolver: emailMatchingUserEntityProfileEmail
+        bitbucket:
+          production:
+            clientId: ${AUTH_BITBUCKET_CLIENT_ID}
+            clientSecret: ${AUTH_BITBUCKET_CLIENT_SECRET}
+            signIn:
+              resolvers:
+                - resolver: usernameMatchingUserEntityAnnotation
+        guest:
+          userEntityRef: user:default/guest
+
+    catalog:
+      readonly: ${CATALOG_READONLY:-true}
+      rules:
+        - allow: [Component, API, System, Domain, Resource, Location, User, Group]
+      locations:
+        # Core Commerce entities (systems, components, domains)
+        - type: file
+          target: ../../entities/entities.yaml
+          rules:
+            - allow: [Component, API, System, Domain, Resource, Location]
+        # Users and Groups only
+        - type: file
+          target: ../../org/org.yaml
+          rules:
+            - allow: [User, Group]
+      providers:
+        github:
+          enabled: ${CATALOG_GITHUB_PROVIDER_ENABLED:-false}
+          schedule:
+            frequency:
+              hours: ${CATALOG_GITHUB_SYNC_HOURS:-12}
+            timeout:
+              minutes: ${CATALOG_GITHUB_SYNC_TIMEOUT:-30}
+
+    costInsights:
+      engineerCost: 200000
+      products:
+        computeEngine:
+          name: Compute Engine
+          icon: compute
+        cloudStorage:
+          name: Cloud Storage
+          icon: storage
+        bigQuery:
+          name: BigQuery
+          icon: search
+      metrics:
+        DAU:
+          name: Daily Active Users
+          default: true
+        MSC:
+          name: Monthly Subscribers
+
+    techdocs:
+      sanitizer:
+        allowedIframeHosts:
+          - www.youtube.com
+      builder: 'external'
+      generator:
+        runIn: 'local'
+      publisher:
+        type: 'local'
+
+    kubernetes:
+      serviceLocatorMethod:
+        type: multiTenant
+      clusterLocatorMethods:
+        - type: config
+          clusters:
+            - url: ${KUBERNETES_API_SERVER_URL}
+              name: ${KUBERNETES_CLUSTER_NAME}
+              authProvider: serviceAccount
+              skipTLSVerify: true
+              skipMetricsLookup: false
+              serviceAccountToken: ${KUBERNETES_SERVICE_ACCOUNT_TOKEN}
+              caData: ${KUBERNETES_SERVICE_ACCOUNT_CA_DATA}
+
+    argoCD:
+      baseUrl: ${ARGOCD_BASE_URL}
+      token: ${ARGOCD_TOKEN}
+
+    argo:
+      baseUrl: ${ARGO_WORKFLOWS_BASE_URL}
+      token: ${ARGO_WORKFLOWS_TOKEN}
+      namespace: ${ARGO_WORKFLOWS_NAMESPACE:-argo}
+      serverUrl: ${ARGO_WORKFLOWS_SERVER_URL}
+      insecure: ${ARGO_WORKFLOWS_INSECURE:-false}
+
+    jenkins:
+      baseUrl: ${JENKINS_BASE_URL}
+      username: ${JENKINS_USERNAME}
+      apiKey: ${JENKINS_API_KEY}
+      projectCountLimit: ${JENKINS_PROJECT_COUNT_LIMIT:-100}
+
+    proxy:
+      '/api/env-by-branche-backend/applications':
+        target: {{ printf "%s/api/env-by-branche-backend/applications" .Values.backstage.appConfig.backend.baseUrl | quote }}
+        changeOrigin: true
+        secure: ${PROXY_SECURE:-true}
+        logLevel: ${PROXY_LOG_LEVEL:-info}
+
+    sentry:
+      organization: ${SENTRY_ORGANIZATION}
+      dsn: ${SENTRY_DSN}
+
+    sonarqube:
+      baseUrl: ${SONARQUBE_BASE_URL}
+      apiKey: ${SONARQUBE_API_KEY}
+
+    github:
+      baseUrl: https://api.github.com
+      token: ${GITHUB_TOKEN}
+
+    monitoring:
+      baseUrl: ${PROMETHEUS_BASE_URL}
+      token: ${PROMETHEUS_TOKEN}
+
+    # Production-specific configurations
+    logging:
+      level: ${LOG_LEVEL:-info}
+
+    # Security headers for production
+    security:
+      helmet:
+        contentSecurityPolicy:
+          directives:
+            defaultSrc: ["'self'"]
+            scriptSrc: ["'self'", "'unsafe-inline'"]
+            styleSrc: ["'self'", "'unsafe-inline'"]
+            imgSrc: ["'self'", "data:", "https:"]
+            connectSrc: ["'self'", "https:", {{ .Values.backstage.appConfig.baseUrl | quote }}, {{ .Values.backstage.appConfig.backend.baseUrl | quote }}]
+
+    # Health check endpoints
+    healthcheck:
+      enabled: true
+      path: /healthcheck
+
+    # Metrics for monitoring
+    metrics:
+      enabled: ${METRICS_ENABLED:-true}
+      port: ${METRICS_PORT:-9090}
+      
+    permission:
+      enabled: false

@@ -1,0 +1,536 @@
+# Production Helm Values for Backstage
+# This file should be used alongside the main values.yaml in the helm-chart directory
+
+# Backstage application settings
+backstage:
+  replicaCount: 1 # Production with 2 replicas for HA
+
+  image:
+    repository: 954976325487.dkr.ecr.eu-west-1.amazonaws.com/fenwave/idp
+    pullPolicy: Always
+    tag: v1.4.0
+
+  # Service account
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ''
+
+  # Pod security context
+  podSecurityContext:
+    fsGroup: 1001
+    runAsNonRoot: true
+    runAsUser: 1001
+
+  # Container security context
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1001
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 7007
+    annotations: {}
+
+  # Resource limits and requests for production
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 1000m
+      memory: 1Gi
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity
+  affinity: {}
+
+  # Autoscaling for production
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+
+  # Probes
+  livenessProbe:
+    httpGet:
+      path: /healthcheck
+      port: 7007
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /healthcheck
+      port: 7007
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  # Application configuration (for ConfigMap template)
+  appConfig:
+    title: 'Fenwave Internal Developer Platform'
+    baseUrl: 'https://fenwave.webtechconfo.fr'
+    organization:
+      name: 'Fenwave'
+    backend:
+      baseUrl: 'https://fenwave.webtechconfo.fr'
+      cors:
+        origin: 'https://fenwave.webtechconfo.fr'
+
+  # Ingress configuration for production
+  ingress:
+    enabled: true
+    className: 'alb' # Using AWS ALB Ingress Controller
+    annotations:
+      kubernetes.io/ingress.class: alb
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/group.name: core-commerce-shared
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: '443'
+      alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-west-3:752566893537:certificate/907eb0c1-be09-4f23-880b-063a4185db25
+    hosts:
+      - host: fenwave.webtechconfo.fr
+        paths:
+          - path: /
+            pathType: Prefix
+
+# PostgreSQL configuration for production
+postgresql:
+  enabled: false # Using external PostgreSQL in production
+
+# External PostgreSQL configuration
+externalDatabase:
+  host: 'postgres-postgresql.postgres.svc.cluster.local'
+  port: 5432
+  username: 'fenwave'
+  password: '' # Will be set from secret
+  database: 'fenwave'
+  existingSecret: 'fenwave-backstage-secrets'
+  existingSecretPasswordKey: 'postgres-password'
+
+# Backstage configuration for production
+config:
+  app:
+    title: 'Fenwave Internal Developer Platform'
+    baseUrl: 'https://fenwave.webtechconfo.fr'
+
+  backend:
+    baseUrl: 'https://fenwave.webtechconfo.fr'
+    listen:
+      port: 7007
+    cors:
+      origin: 'https://fenwave.webtechconfo.fr'
+      methods: [GET, POST, PUT, DELETE]
+      credentials: true
+
+  # GitHub integration
+  integrations:
+    github:
+      host: 'github.com'
+      token: '' # Set via environment variable GITHUB_TOKEN
+
+  # Auth providers
+  auth:
+    environment: 'production'
+    providers:
+      github:
+        production:
+          clientId: '' # Set via environment variable
+          clientSecret: '' # Set via environment variable
+      bitbucket:
+        production:
+          clientId: '' # Set via environment variable
+          clientSecret: '' # Set via environment variable
+      guest:
+        userEntityRef: 'user:default/guest'
+
+  # Kubernetes integration
+  kubernetes:
+    serviceLocatorMethod:
+      type: 'multiTenant'
+    clusterLocatorMethods:
+      - type: 'config'
+        clusters:
+          - name: 'core-commerce-eu-west-3'
+            url: 'https://A9D296EF23BDB231FC394503932C6E2C.gr7.eu-west-3.eks.amazonaws.com'
+            authProvider: 'serviceAccount'
+            serviceAccountToken: '' # Set via environment variable
+            caData: '' # Set via environment variable
+
+  # ArgoCD integration
+  argoCD:
+    baseUrl: 'https://argo-cd.fenwave.webtechconfo.fr'
+    token: '' # Set via environment variable
+
+  # Argo Workflows integration
+  argo:
+    baseUrl: 'https://argo-workflows.fenwave.webtechconfo.fr'
+    token: '' # Set via environment variable
+    hajertrimeche@fenleep-i-MS-7D48:~/fenwave-helm-charts$ kubectl get pods -n fenwave
+NAME                                 READY   STATUS             RESTARTS         AGE
+fenwave-backstage-58bb9b8d79-9bbdt   0/1     Error              11 (5m11s ago)   31m
+fenwave-backstage-58bb9b8d79-rmv5c   0/1     CrashLoopBackOff   10 (4m55s ago)   31m
+fenwave-backstage-postgresql-0       1/1     Running            0                20hce: 'argo'
+    serverUrl: 'https://argo-workflows.fenwave.webtechconfo.fr'
+    insecure: false
+
+  # Prometheus integration
+  prometheus:
+    host: 'https://prometheus.fenwave.webtechconfo.fr'
+    token: '' # Set via environment variable
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 7007
+  targetPort: 7007
+
+# Resource limits for production
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 1000m
+    memory: 1Gi
+
+# Autoscaling configuration
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Health checks
+livenessProbe:
+  httpGet:
+    path: /healthcheck
+    port: 7007
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /healthcheck
+    port: 7007
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Secret values for Helm templates (used by secret.yaml template)
+# These values will be base64 encoded and stored in Kubernetes secrets
+secretValues:
+secretValues:
+  BACKEND_SECRET: "${BACKEND_SECRET}"
+  GITHUB_TOKEN: "${GITHUB_TOKEN}"
+  POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+  ARGOCD_TOKEN: "${ARGOCD_TOKEN}"
+  KUBERNETES_SERVICE_ACCOUNT_TOKEN: "${KUBERNETES_SERVICE_ACCOUNT_TOKEN}"
+  ARGO_WORKFLOWS_TOKEN: "${ARGO_WORKFLOWS_TOKEN}"
+  AUTH_GITHUB_CLIENT_SECRET: "${AUTH_GITHUB_CLIENT_SECRET}"
+  AUTH_BITBUCKET_CLIENT_SECRET: "${AUTH_BITBUCKET_CLIENT_SECRET}"
+  PROMETHEUS_TOKEN: "${PROMETHEUS_TOKEN}"
+  SONARQUBE_API_KEY: "${SONARQUBE_API_KEY}"
+  JENKINS_API_KEY: "${JENKINS_API_KEY}"
+
+# Environment values for Helm templates (used by deployment.yaml template)
+# These are direct environment variable values (NON-SENSITIVE only)
+envValues:
+  # Core Backstage Configuration
+  NODE_ENV: 'production'
+  BACKSTAGE_BASE_URL: 'https://fenwave.webtechconfo.fr'
+  BACKSTAGE_BACKEND_URL: 'https://fenwave.webtechconfo.fr'
+
+  # Logging Configuration
+  LOG_LEVEL: 'debug'
+  AUTH_LOG_LEVEL: 'debug'
+
+  # Database Configuration (non-sensitive)
+  # ⚠️ IMPORTANT: These are commented to avoid duplicates with extraEnvVars
+  # The actual values are set in extraEnvVars from secrets (see below)
+  # POSTGRES_HOST: "postgresql.fenwave-db.svc.cluster.local"
+  # POSTGRES_PORT: "5432"
+  # POSTGRES_USER: "fenwave"
+  # POSTGRES_DB: "fenwave"
+  POSTGRES_SSL_REQUIRE: 'false'
+  POSTGRES_SSL_REJECT_UNAUTHORIZED: 'false'
+  DATABASE_POOL_MIN: '2'
+  DATABASE_POOL_MAX: '10'
+
+  # GitHub Integration (trigger template conditionals)
+  AUTH_GITHUB_ENTERPRISE_INSTANCE_URL: ''
+
+  # ArgoCD Integration (trigger template conditionals)
+  ARGOCD_HOST: 'http://argocd-server.argocd.svc.cluster.local'
+
+  # Kubernetes Integration (trigger template conditionals)
+  API_SERVER_FENWAVE_GITOPS: 'https://A9D296EF23BDB231FC394503932C6E2C.gr7.eu-west-3.eks.amazonaws.com'
+  KUBERNETES_API_SERVER_URL: 'https://A9D296EF23BDB231FC394503932C6E2C.gr7.eu-west-3.eks.amazonaws.com'
+  CLUSTER_NAME: 'eks-gitops-v1'
+  KUBERNETES_CLUSTER_NAME: 'eks-gitops-v1'
+
+  # Argo Workflows Integration (trigger template conditionals)
+  ARGO_WORKFLOWS_BASE_URL: 'https://argo-server.argo.svc.cluster.local:2746'
+  ARGO_WORKFLOWS_NAMESPACE: 'argo'
+  ARGO_WORKFLOWS_SERVER_URL: 'argo-workflows.fenwave.com:443'
+  ARGO_WORKFLOWS_INSECURE: 'true'
+
+  # AWS Configuration (non-sensitive)
+  AWS_DEFAULT_REGION: 'eu-west-3'
+
+  # Monitoring Integration (trigger template conditionals)
+  PROMETHEUS_BASE_URL: 'http://prometheus-stack-kube-prom-prometheus.fenwave-system.svc.cluster.local:9090'
+
+  # SonarQube Code Quality (non-sensitive)
+  SONARQUBE_BASE_URL: 'https://your-sonarqube-instance'
+
+  # Jenkins Integration (non-sensitive)
+  JENKINS_BASE_URL: 'https://your-jenkins-instance'
+  JENKINS_USERNAME: 'your-jenkins-username'
+  JENKINS_PROJECT_COUNT_LIMIT: '100'
+
+  # Catalog Configuration
+  CATALOG_READONLY: 'true'
+  CATALOG_GITHUB_PROVIDER_ENABLED: 'false'
+  CATALOG_GITHUB_SYNC_HOURS: '12'
+  CATALOG_GITHUB_SYNC_TIMEOUT: '30'
+
+  # Logging and Monitoring
+  METRICS_ENABLED: 'true'
+  METRICS_PORT: '9090'
+
+  # Proxy Configuration
+  PROXY_SECURE: 'true'
+  PROXY_LOG_LEVEL: 'debug'
+
+  # Sentry Error Tracking (non-sensitive)
+  SENTRY_ORGANIZATION: 'your-sentry-org'
+
+# Environment variables for production (used by deployment.yaml template)
+# These reference the secrets created by the secret.yaml template
+env:
+  # Base URLs
+  - name: BACKSTAGE_BASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: backstage-secrets
+        key: base-url
+
+  - name: BACKSTAGE_BACKEND_URL
+    valueFrom:
+      secretKeyRef:
+        name: backstage-secrets
+        key: backend-url
+
+  # Backend configuration
+  - name: BACKEND_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: backstage-secrets
+        key: backend-secret
+
+  # Database configuration
+  - name: POSTGRES_HOST
+    valueFrom:
+      secretKeyRef:
+        name: postgres-credentials
+        key: host
+
+  - name: POSTGRES_PORT
+    valueFrom:
+      secretKeyRef:
+        name: postgres-credentials
+        key: port
+
+  - name: POSTGRES_USER
+    valueFrom:
+      secretKeyRef:
+        name: postgres-credentials
+        key: username
+
+  - name: POSTGRES_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: postgres-credentials
+        key: password
+
+  - name: POSTGRES_DB
+    valueFrom:
+      secretKeyRef:
+        name: postgres-credentials
+        key: database
+
+  # GitHub configuration
+  - name: GITHUB_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: github-credentials
+        key: token
+
+  - name: AUTH_GITHUB_CLIENT_ID
+    valueFrom:
+      secretKeyRef:
+        name: github-oauth
+        key: client-id
+
+  - name: AUTH_GITHUB_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: github-oauth
+        key: client-secret
+
+  - name: KUBERNETES_SERVICE_ACCOUNT_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: kubernetes-credentials
+        key: service-account-token
+
+  # ArgoCD configuration
+  - name: ARGOCD_BASE_URL
+    valueFrom:
+      configMapKeyRef:
+        name: argocd-config
+        key: base-url
+
+  - name: ARGOCD_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: argocd-credentials
+        key: token
+
+  # AWS configuration
+  - name: AWS_ACCOUNT_ID
+    valueFrom:
+      configMapKeyRef:
+        name: aws-config
+        key: account-id
+
+  - name: AWS_REGION
+    valueFrom:
+      configMapKeyRef:
+        name: aws-config
+        key: region
+
+  # Monitoring configuration
+  - name: PROMETHEUS_BASE_URL
+    valueFrom:
+      configMapKeyRef:
+        name: monitoring-config
+        key: prometheus-url
+
+# Node affinity for better distribution
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - fenwave
+          topologyKey: kubernetes.io/hostname
+
+# Service account
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::752566893537:role/fenwave-service-role
+  name: fenwave
+
+# Storage for temporary files
+volumes:
+  - name: tmp
+    emptyDir: {}
+  - name: cache
+    emptyDir: {}
+
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+  - name: cache
+    mountPath: /app/cache
+
+# Network policy for security
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 7007
+  egress:
+    - {} # Allow all egress traffic
+
+# Monitoring and observability
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    path: /metrics
+    labels:
+      release: prometheus
+
+# Backup configuration
+backup:
+  enabled: true
+  schedule: '0 2 * * *' # Daily at 2 AM
+  retention: '30d'
+
+# Additional labels
+labels:
+  environment: production
+  team: platform
+  component: fenwave
+
+# Additional annotations
+annotations:
+  deployment.kubernetes.io/revision: '1'

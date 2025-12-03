@@ -1,0 +1,202 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fenwave-backstage.fullname" . }}
+  labels:
+    {{- include "fenwave-backstage.labels" . | nindent 4 }}
+  {{- with .Values.deploymentAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.backstage.autoscaling.enabled }}
+  replicas: {{ .Values.backstage.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "fenwave-backstage.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "fenwave-backstage.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "fenwave-backstage.serviceAccountName" . }}
+      {{- with .Values.backstage.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backstage.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: fenwave-idp
+          image: "{{ .Values.backstage.image.repository }}:{{ .Values.backstage.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.backstage.image.pullPolicy }}
+          {{- with .Values.backstage.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.backstage.service.port }}
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.backstage.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.backstage.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.backstage.resources | nindent 12 }}
+          env:
+            # All environment values from envValues (non-secret values only)
+            # Exclude variables that are set from secrets below
+            {{- $secretKeys := list "POSTGRES_PASSWORD" "BACKEND_SECRET" "GITHUB_TOKEN" "ARGOCD_TOKEN" "ARGO_WORKFLOWS_TOKEN" "KUBERNETES_SERVICE_ACCOUNT_TOKEN" "KUBERNETES_SERVICE_ACCOUNT_CA_DATA" "PROMETHEUS_TOKEN" "AUTH_GITHUB_CLIENT_ID" "AUTH_GITHUB_CLIENT_SECRET" "AUTH_BITBUCKET_CLIENT_ID" "AUTH_BITBUCKET_CLIENT_SECRET" }}
+            {{- range $key, $value := .Values.envValues }}
+            {{- if not (has $key $secretKeys) }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- end }}
+            
+            # Secret-based environment variables (from Kubernetes secrets)
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fenwave-backstage.secretName" . }}
+                  key: postgres-password
+            - name: BACKEND_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fenwave-backstage.secretName" . }}
+                  key: backend-secret
+            
+            # Optional secret-based environment variables
+            {{- if .Values.secretValues.GITHUB_TOKEN }}
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fenwave-backstage.secretName" . }}
+                  key: github-token
+            {{- end }}
+            - name: AUTH_GITHUB_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fenwave-backstage.secretName" . }}
+                  key: auth-github-client-id
+            - name: AUTH_GITHUB_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fenwave-backstage.secretName" . }}
+                  key: auth-github-client-secret
+            - name: AUTH_BITBUCKET_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fenwave-backstage.secretName" . }}
+                  key: auth-bitbucket-client-id
+            - name: AUTH_BITBUCKET_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fenwave-backstage.secretName" . }}
+                  key: auth-bitbucket-client-secret
+            {{- if .Values.secretValues.ARGOCD_TOKEN }}
+            - name: ARGOCD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fenwave-backstage.secretName" . }}
+                  key: argocd-token
+            {{- end }}
+            {{- if .Values.secretValues.ARGO_WORKFLOWS_TOKEN }}
+            - name: ARGO_WORKFLOWS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fenwave-backstage.secretName" . }}
+                  key: argo-workflows-token
+            {{- end }}
+            {{- if .Values.secretValues.KUBERNETES_SERVICE_ACCOUNT_TOKEN }}
+            - name: KUBERNETES_SERVICE_ACCOUNT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fenwave-backstage.secretName" . }}
+                  key: kubernetes-service-account-token
+            {{- end }}
+            {{- if .Values.secretValues.KUBERNETES_SERVICE_ACCOUNT_CA_DATA }}
+            - name: KUBERNETES_SERVICE_ACCOUNT_CA_DATA
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fenwave-backstage.secretName" . }}
+                  key: kubernetes-service-account-ca-data
+            {{- end }}
+            {{- if .Values.secretValues.PROMETHEUS_TOKEN }}
+            - name: PROMETHEUS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fenwave-backstage.secretName" . }}
+                  key: prometheus-token
+            {{- end }}
+          
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/app-config.production.yaml
+              subPath: app-config.production.yaml
+              readOnly: true
+            - name: entities
+              mountPath: /entities/entities.yaml
+              subPath: entities.yaml
+              readOnly: true
+            - name: org
+              mountPath: /org/org.yaml
+              subPath: org.yaml
+              readOnly: true
+            {{- if .Values.s3Storage.enabled }}
+            - name: s3-storage
+              mountPath: {{ .Values.s3Storage.mountPath | default "/app/storage" }}
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- with .Values.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: app-config
+          configMap:
+            name: {{ include "fenwave-backstage.configMapName" . }}
+        - name: entities
+          configMap:
+            name: {{ include "fenwave-backstage.fullname" . }}-entities
+        - name: org
+          configMap:
+            name: {{ include "fenwave-backstage.fullname" . }}-org
+        {{- if .Values.s3Storage.enabled }}
+        - name: s3-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.s3Storage.existingPvcName | default (printf "%s-storage-pvc" (include "fenwave-backstage.fullname" .)) }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.backstage.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backstage.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backstage.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
